@@ -163,6 +163,7 @@ Nx = 25
 Ny = 1
 mesh = fenics.RectangleMesh(fenics.Point(0., 0.), fenics.Point(L, H), Nx, Ny, "crossed")
 fenics.plot(mesh)
+
 ```
 <img src="scripts/beam_mesh.png" alt="beam_mesh.png" width="600"/>
 
@@ -224,7 +225,8 @@ bc = fenics.DirichletBC(V, Constant((0.,0.)), left)
 u = fenics.Function(V, name="Displacement")
 fenics.solve(a == l, u, bc)
 
-fenics.plot(1e3*u, mode="displacement") # the solution is amplified with 1e3 for the visuals
+# the solution is amplified with 1e3 for the visuals
+fenics.plot(1e3*u, mode="displacement")
 ```
 <img src="scripts/beam_displacement.png" alt="beam_displacement.png" width="600"/>
 
@@ -232,7 +234,7 @@ The maximal deflection is compared against the analytical solution from [Euler-B
 $w_{beam} = \dfrac{qL^4}{8EI}$, $I$ is the [second moment of area](https://en.wikipedia.org/wiki/Second_moment_of_area) of the beam's cross-section.
 ```python
 print("Maximal deflection:", -u(L, H/2.)[1])
-print("Beam theory deflection:", float(rho_g * L**4 / (2/3  * E * H**3)))
+print("Beam theory deflection:", float(rho_g*L**4/(2/3*E*H**3)))
 ```
 ```
 Maximal deflection: 0.005317702470567223
@@ -274,6 +276,7 @@ def solve_elasticity(E, ρ_g):
     w = fenics_adjoint.Function(V)
     fenics_adjoint.solve(a == l, w, bc)
     return w
+
 ```
 
 ## Automatic differentiation & FEniCS, using [dolfin-adjoint](http://www.dolfin-adjoint.org/en/latest/)
@@ -347,6 +350,7 @@ with pm.Model() as model:
     maximum_deflections = tt.stack(maximum_deflections)
 
     d = pm.Normal("d", mu=maximum_deflections, sd=1e-3, observed=measurements)
+
 ```
 We can now call PyMC3 inference algorithms. First, let's look at the MAP estimate
 ```python
@@ -381,7 +385,8 @@ E[0]  132148.824  285.805  131637.637  132484.79    245.799  237.897       1.0  
 Now we've done all that only to remember that we have the Euler-Bernoulli beam theory, which tells us
 that given the maximum deflection, the loading, and beam geometry we can calculate the Young's modulus. However, for many other PDEs we don't have closed form relationships between measurements and parameters.
 ```python
-print(f"Analytical estimate of E is {loads[0][0] * L**4 / (2/3  * H**3 * measurements[0])}")
+print(f"Analytical estimate of E is
+        {loads[0][0] * L**4 / (2/3 * H**3 * measurements[0])}")
 ```
 ```
 Analytical estimate of E is 137738.01128349788
