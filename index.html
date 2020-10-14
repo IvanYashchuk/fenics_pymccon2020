@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Including partial differential equations in your PyMC3 model</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {  background-color: #f8f8f8; }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ef2929; } /* Alert */
+    code span.an { color: #8f5902; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #c4a000; } /* Attribute */
+    code span.bn { color: #0000cf; } /* BaseN */
+    code span.cf { color: #204a87; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4e9a06; } /* Char */
+    code span.cn { color: #000000; } /* Constant */
+    code span.co { color: #8f5902; font-style: italic; } /* Comment */
+    code span.cv { color: #8f5902; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #8f5902; font-weight: bold; font-style: italic; } /* Documentation */
+    code span.dt { color: #204a87; } /* DataType */
+    code span.dv { color: #0000cf; } /* DecVal */
+    code span.er { color: #a40000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #0000cf; } /* Float */
+    code span.fu { color: #000000; } /* Function */
+    code span.im { } /* Import */
+    code span.in { color: #8f5902; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #204a87; font-weight: bold; } /* Keyword */
+    code span.op { color: #ce5c00; font-weight: bold; } /* Operator */
+    code span.ot { color: #8f5902; } /* Other */
+    code span.pp { color: #8f5902; font-style: italic; } /* Preprocessor */
+    code span.sc { color: #000000; } /* SpecialChar */
+    code span.ss { color: #4e9a06; } /* SpecialString */
+    code span.st { color: #4e9a06; } /* String */
+    code span.va { color: #000000; } /* Variable */
+    code span.vs { color: #4e9a06; } /* VerbatimString */
+    code span.wa { color: #8f5902; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="pandoc.css" />
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" type="text/javascript"></script>
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-99223551-3"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-99223551-3');
+  </script>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Including partial differential equations in your PyMC3 model</h1>
+</header>
+<!-- # Including partial differential equations in your PyMC3 model. -->
+<h2 id="pde-based-modeling">PDE-based modeling</h2>
+<p>A partial differential equation (PDE) is an equation which imposes relations between the partial derivatives of a multivariable function. To solve a PDE means to find a function that satisfies prescribed relations, similarly to how we seek a certain number <span class="math inline">\(x\)</span> in algebraic equation <span class="math inline">\(x^2 + 2x + 2 = 0\)</span>.</p>
+<p>PDEs are foundational in modern scientific modeling of various phenomena in physics and engineering fields. In this tutorial we a going to take a look at the elasticity phenomenon. Solid objects will deform when some loads are applied to them; if the material is elastic, the object will return to its initial shape and size after removal of the load. So the elastic material behaves like a spring.</p>
+<h2 id="bayesian-inference-for-pde-based-models">Bayesian inference for PDE-based models</h2>
+Excerpt from Albert Tarantola’s book:
+<blockquote>
+Physical theories allow us to make predictions: given a complete description of a physical system, we can predict the outcome of some measurements. This problem of predicting the result of measurements is called the modelization problem, the simulation problem, the forward problem, or the primal problem. The inverse problem consists of using the actual result of some measurements to infer the values of the parameters that characterize the system. While the forward problem has (in deterministic physics) a unique solution, the inverse problem does not. As an example, consider measurements of the gravity field around a planet: given the distribution of mass inside the planet, we can uniquely predict the values of the gravity field around the planet (forward problem), but there are different distributions of mass that give exactly the same gravity field in the space outside the planet. Therefore, the inverse problem — of inferring the mass distribution from observations of the gravity field — has multiple solutions (in fact, an infinite number). Because of this, in the inverse problem, one needs to make explicit any available a priori information on the model parameters. One also needs to be careful in the representation of the data uncertainties.
+</blockquote>
+<p>PDEs can be parametrized to cover a range of different materials/fluids/environment conditions, etc. A problem of recovering certain parameters from the physical observations is called an inverse problem.</p>
+<p>The history of applying Bayesian statistics to inverse problems dates back to Albert Tarantola. His book “Inverse Problem Theory: Methods for Data Fitting and Model Parameter Estimation” was published 1987.</p>
+<p>Suggested reading:</p>
+<ul>
+<li>“Inverse problems: A Bayesian perspective”, Acta Numerica (2010), a review article by Andrew Stuart,</li>
+<li>“The Bayesian Approach To Inverse Problems” by Masoumeh Dashti, Andrew Stuart https://arxiv.org/abs/1302.6989,</li>
+<li>“An Introduction to Bayesian Scientific Computing” by Erkki Somersalo and Daniela Calvetti .</li>
+</ul>
+<h2 id="short-intro-to-fenics-basic-concepts-and-syntax">Short intro to FEniCS: basic concepts and syntax</h2>
+<p>FEniCS is a library for an automated solution of partial differential equations using the finite element method (FEM). Domain-specific languages (DSL) are tailored to specific application areas. PyMC3 implements a DSL for specifying and manipulating probability distributions for building probabilistic models. FEniCS includes its own DSL for partial differential equations posed in a weak form called, the Unified Form Language (UFL). UFL is used also in other finite element libraries, for example <a href="https://www.firedrakeproject.org/">Firedrake</a> and <a href="https://www.dune-project.org/modules/dune-fem/">DUNE-FEM</a>. UFL can be used for many different equations and in different application fields. It has been applied to a variety of complex, coupled nonlinear equations.</p>
+<p>In many textbooks on finite element methods you will find the “Hello World!” task, the basic Poisson problem stated as follows: Find <span class="math inline">\(u\in V\)</span> such that <span class="math display">\[a(u, v) = L(v) \quad \forall v \in V, \quad\quad(1)\]</span> where <span class="math inline">\(a(u,v):= \int_\Omega \nabla u \cdot \nabla v \, dx\)</span> is a bilinear form and <span class="math inline">\(L(v):= \int_\Omega f v dx\)</span> is a linear form for some source term <span class="math inline">\(f\)</span>. Additionally we supplement the problem statement with the condition that the solution should be zero on boundaries of the domain. This variational problem is straightforward to transform into FEniCS code.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1"></a><span class="co"># wildcard import is not advisable in general</span></span>
+<span id="cb1-2"><a href="#cb1-2"></a><span class="co"># however current fenics tutorials are written in this way</span></span>
+<span id="cb1-3"><a href="#cb1-3"></a><span class="im">from</span> fenics <span class="im">import</span> <span class="op">*</span></span>
+<span id="cb1-4"><a href="#cb1-4"></a>mesh <span class="op">=</span> UnitSquareMesh(<span class="dv">10</span>, <span class="dv">10</span>)</span>
+<span id="cb1-5"><a href="#cb1-5"></a>V <span class="op">=</span> FunctionSpace(mesh, <span class="st">&quot;CG&quot;</span>, <span class="dv">1</span>)</span>
+<span id="cb1-6"><a href="#cb1-6"></a>u <span class="op">=</span> TrialFunction(V)</span>
+<span id="cb1-7"><a href="#cb1-7"></a>v <span class="op">=</span> TestFunction(V)</span>
+<span id="cb1-8"><a href="#cb1-8"></a>f <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb1-9"><a href="#cb1-9"></a>a <span class="op">=</span> inner(grad(u), grad(v)) <span class="op">*</span> dx <span class="co"># left-hand-side of the equation (1)</span></span>
+<span id="cb1-10"><a href="#cb1-10"></a>L <span class="op">=</span> f <span class="op">*</span> v <span class="op">*</span> dx <span class="co"># right-hand-side of the equation (1)</span></span>
+<span id="cb1-11"><a href="#cb1-11"></a>bc <span class="op">=</span> DirichletBC(V, <span class="fl">0.0</span>, <span class="st">&quot;on_boundary&quot;</span>)</span>
+<span id="cb1-12"><a href="#cb1-12"></a>sol <span class="op">=</span> Function(V)</span>
+<span id="cb1-13"><a href="#cb1-13"></a>solve(a<span class="op">==</span>L, sol, bc)</span></code></pre></div>
+<p>The FEniCS/UFL input closely matches the mathematical abstractions and syntax.</p>
+<p>We can plot the solution to this problem</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb2-2"><a href="#cb2-2"></a>contours <span class="op">=</span> plot(sol)</span>
+<span id="cb2-3"><a href="#cb2-3"></a>plt.colorbar(contours)</span></code></pre></div>
+<p><img src="scripts/poisson_solution.png" alt="poisson_solution.png" width="600"/></p>
+<p>I recommend going through the <a href="https://fenicsproject.org/tutorial/">FEniCS Tutorial</a> for a more detailed introduction to FEniCS. It explains the fundamental concepts of the finite element method, FEniCS programming, and demonstrates how to quickly solve a range of PDEs.</p>
+<h3 id="meshes">Meshes</h3>
+<p>The very first step in solving PDEs numerically is to discretize the domain. In finite element methods the domain is subdivided into smaller elements: intervals, triangles, quadrilaterals, etc, together they form a mesh. Let’s choose, for simplicity, the domain to be the unit square <span class="math inline">\(\Omega = [0, 1] \times [0, 1]\)</span>. Then we can create the mesh in FEniCS with</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1"></a><span class="im">import</span> fenics</span>
+<span id="cb3-2"><a href="#cb3-2"></a>nx, ny <span class="op">=</span> <span class="dv">16</span>, <span class="dv">16</span></span>
+<span id="cb3-3"><a href="#cb3-3"></a>mesh <span class="op">=</span> fenics.UnitSquareMesh(nx, ny)</span></code></pre></div>
+<p>We can plot the generated mesh</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1"></a>fenics.plot(mesh)</span></code></pre></div>
+<p><img src="scripts/mesh.png" alt="mesh.png" width="600"/></p>
+<h3 id="functions">Functions</h3>
+<p>We can define scalar and vector fields on the mesh by interpolating the values of an algebraic expression to some space of functions. We need to make a function space <span class="math inline">\(V\)</span>. It is constructed with a mesh, element family and the polynomial order. The basic choice the element family that consists of continuous piecewise-linear functions in each triangle, which is abbreviated to CG1 for “continuous Galerkin” of order 1.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1"></a>V <span class="op">=</span> fenics.FunctionSpace(mesh, <span class="st">&quot;CG&quot;</span>, <span class="dv">1</span>)</span></code></pre></div>
+<p>Next, we have to make an expression for the function and interpolate it to the function space <span class="math inline">\(V\)</span>. The function <code>fenics.SpatialCoordinate</code> returns two symbolic objects <code>x</code>, <code>y</code> for the coordinates of each point of the mesh. We can then use these symbols to define expressions for the function we’d like to analyze. Finally, the function <code>fenics.project</code> takes in an expression and a function space, and returns a field from that function space. Let’s represent the <a href="https://en.wikipedia.org/wiki/Rosenbrock_function">Rosenbrock function</a> as a <code>fenics.Function</code></p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1"></a>x, y <span class="op">=</span> fenics.SpatialCoordinate(mesh)</span>
+<span id="cb6-2"><a href="#cb6-2"></a>a, b <span class="op">=</span> <span class="fl">0.5</span>, <span class="fl">10.0</span></span>
+<span id="cb6-3"><a href="#cb6-3"></a>expr <span class="op">=</span> (a <span class="op">-</span> x)<span class="op">**</span><span class="dv">2</span> <span class="op">+</span> b<span class="op">*</span>(y <span class="op">-</span> x<span class="op">**</span><span class="dv">2</span>)<span class="op">**</span><span class="dv">2</span></span>
+<span id="cb6-4"><a href="#cb6-4"></a>rosenbrock_field <span class="op">=</span> fenics.project(expr, V)</span>
+<span id="cb6-5"><a href="#cb6-5"></a></span>
+<span id="cb6-6"><a href="#cb6-6"></a>contours <span class="op">=</span> fenics.plot(rosenbrock_field)</span>
+<span id="cb6-7"><a href="#cb6-7"></a>plt.colorbar(contours)</span></code></pre></div>
+<p><img src="scripts/rosenbrock.png" alt="rosenbrock.png" width="600"/></p>
+<h3 id="post-processing">Post-processing</h3>
+<p>The traditional workflow for analyzing results of FEniCS simulations is to save results to disk and open them in <a href="https://www.paraview.org/">ParaView</a>. FEniCS directly can be used for the basic tasks like evaluating a function at a point</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1"></a>point <span class="op">=</span> (<span class="fl">0.5</span>, <span class="fl">0.5</span>)</span>
+<span id="cb7-2"><a href="#cb7-2"></a><span class="bu">print</span>(<span class="ss">f&quot;Value at </span><span class="sc">{</span>point<span class="sc">}</span><span class="ss"> is </span><span class="sc">{</span>rosenbrock_field(point)<span class="sc">}</span><span class="ss">&quot;</span>)</span></code></pre></div>
+<pre><code>Value at (0.5, 0.5) is 0.6211039565460185</code></pre>
+<p>or evaluating integrals. To define an integral, we multiply an expression by <code>dx</code>, and then call the function <code>fenics.assemble</code> to evaluate it.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1"></a><span class="im">from</span> fenics <span class="im">import</span> dx, assemble</span>
+<span id="cb9-2"><a href="#cb9-2"></a></span>
+<span id="cb9-3"><a href="#cb9-3"></a><span class="bu">print</span>(<span class="ss">f&quot;Value of the integral is </span><span class="sc">{</span>assemble(x<span class="op">*</span>y<span class="op">*</span>dx)<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb9-4"><a href="#cb9-4"></a><span class="bu">print</span>(<span class="ss">f&quot;Value of the integral is </span><span class="sc">{</span>assemble(rosenbrock_field<span class="op">*</span>dx)<span class="sc">}</span><span class="ss">&quot;</span>)</span></code></pre></div>
+<pre><code>Value of the integral is 0.25
+Value of the integral is 2.0833333333333357</code></pre>
+<h2 id="intro-to-an-example-model-from-continuum-mechanics">Intro to an example model from continuum mechanics</h2>
+<p>This section is based on <a href="https://comet-fenics.readthedocs.io/en/latest/index.html">“Numerical tours of continuum mechanics using FEniCS.”</a></p>
+<p>We consider here the case of a cantilever beam modeled as a 2D medium of dimensions <span class="math inline">\(L \times H\)</span>.</p>
+<!-- ![<img src="image.png" width="100"/>](https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Pg_036_-_Walking_the_Plank.jpg/800px-Pg_036_-_Walking_the_Plank.jpg) -->
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Pg_036_-_Walking_the_Plank.jpg/800px-Pg_036_-_Walking_the_Plank.jpg" width="350">
+<figcaption>
+A cantilever beam. https://commons.wikimedia.org/w/index.php?curid=10046664
+</figcaption>
+<p>Geometrical parameters and mesh density are first defined and the rectangular domain is generated using the RectangleMesh function.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1"></a><span class="im">import</span> fenics</span>
+<span id="cb11-2"><a href="#cb11-2"></a></span>
+<span id="cb11-3"><a href="#cb11-3"></a>L <span class="op">=</span> <span class="fl">25.0</span></span>
+<span id="cb11-4"><a href="#cb11-4"></a>H <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb11-5"><a href="#cb11-5"></a>Nx <span class="op">=</span> <span class="dv">25</span></span>
+<span id="cb11-6"><a href="#cb11-6"></a>Ny <span class="op">=</span> <span class="dv">1</span></span>
+<span id="cb11-7"><a href="#cb11-7"></a>mesh <span class="op">=</span> fenics.RectangleMesh(fenics.Point(<span class="fl">0.</span>, <span class="fl">0.</span>), fenics.Point(L, H), Nx, Ny, <span class="st">&quot;crossed&quot;</span>)</span>
+<span id="cb11-8"><a href="#cb11-8"></a>fenics.plot(mesh)</span></code></pre></div>
+<p><img src="scripts/beam_mesh.png" alt="beam_mesh.png" width="600"/></p>
+<h3 id="constitutive-relation">Constitutive relation</h3>
+<p>We now define the material parameters which are here given in terms of a Young’s modulus <span class="math inline">\(E\)</span> and a Poisson coefficient <span class="math inline">\(\nu\)</span>. In the following, we will need to define the constitutive relation between the stress tensor <span class="math inline">\(\sigma\)</span> and the strain tensor <span class="math inline">\(\varepsilon\)</span>. The general expression of the linear elastic isotropic constitutive relation for a 3D medium is given by: <span class="math display">\[\boldsymbol{\sigma} = \lambda \text{tr}(\boldsymbol{\varepsilon})\mathbf{1} + 2\mu\boldsymbol{\varepsilon}\]</span> for a natural (no prestress) initial state where the Lamé coefficients are given by: <span class="math display">\[\lambda = \dfrac{E\nu}{(1+\nu)(1-2\nu)}, \quad \mu = \dfrac{E}{2(1+\nu)}\]</span> we will work only with a 2D displacement vector <span class="math inline">\(u=(u_x, u_y)\)</span> and will subsequently define the strain operator <code>eps</code> as follows:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1"></a><span class="im">from</span> fenics <span class="im">import</span> sym, grad</span>
+<span id="cb12-2"><a href="#cb12-2"></a></span>
+<span id="cb12-3"><a href="#cb12-3"></a><span class="kw">def</span> eps(v):</span>
+<span id="cb12-4"><a href="#cb12-4"></a>    <span class="cf">return</span> sym(grad(v))</span></code></pre></div>
+<p>which computes the 2x2 plane components of the symmetrized gradient tensor of any 2D vectorial field.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1"></a><span class="im">from</span> fenics <span class="im">import</span> tr, Identity</span>
+<span id="cb13-2"><a href="#cb13-2"></a></span>
+<span id="cb13-3"><a href="#cb13-3"></a>E <span class="op">=</span> fenics.Constant(<span class="fl">1e5</span>)</span>
+<span id="cb13-4"><a href="#cb13-4"></a>nu <span class="op">=</span> fenics.Constant(<span class="fl">0.3</span>)</span>
+<span id="cb13-5"><a href="#cb13-5"></a></span>
+<span id="cb13-6"><a href="#cb13-6"></a>mu <span class="op">=</span> E<span class="op">/</span><span class="dv">2</span><span class="op">/</span>(<span class="dv">1</span><span class="op">+</span>nu)</span>
+<span id="cb13-7"><a href="#cb13-7"></a>lmbda <span class="op">=</span> E<span class="op">*</span>nu<span class="op">/</span>(<span class="dv">1</span><span class="op">+</span>nu)<span class="op">/</span>(<span class="dv">1</span><span class="op">-</span><span class="dv">2</span><span class="op">*</span>nu)</span>
+<span id="cb13-8"><a href="#cb13-8"></a></span>
+<span id="cb13-9"><a href="#cb13-9"></a><span class="kw">def</span> sigma(v):</span>
+<span id="cb13-10"><a href="#cb13-10"></a>    <span class="cf">return</span> lmbda<span class="op">*</span>tr(eps(v))<span class="op">*</span>Identity(<span class="dv">2</span>) <span class="op">+</span> <span class="fl">2.0</span><span class="op">*</span>mu<span class="op">*</span>eps(v)</span></code></pre></div>
+<h3 id="weak-formulation">Weak formulation</h3>
+<p>For this example, we consider a continuous polynomial interpolation of degree 2 and a uniformly distributed loading <span class="math inline">\(\boldsymbol{f}=(0, -f)\)</span> corresponding to the beam self-weight. The continuum mechanics variational formulation (obtained from the virtual work principle) is given by: <span class="math display">\[\text{Find } \boldsymbol{u}\in V \text{ s.t. } \int_{\Omega} \boldsymbol{\sigma}(\boldsymbol{u}):\boldsymbol{\varepsilon}(\boldsymbol{v}) d\Omega = \int_{\Omega} \boldsymbol{f}\cdot\boldsymbol{v}  d\Omega \quad \forall\boldsymbol{v} \in V\]</span> which translates into the following FEniCS code:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1"></a><span class="im">from</span> fenics <span class="im">import</span> inner, dx</span>
+<span id="cb14-2"><a href="#cb14-2"></a></span>
+<span id="cb14-3"><a href="#cb14-3"></a>rho_g <span class="op">=</span> <span class="fl">1e-3</span></span>
+<span id="cb14-4"><a href="#cb14-4"></a>f <span class="op">=</span> fenics.Constant((<span class="dv">0</span>, <span class="op">-</span>rho_g))</span>
+<span id="cb14-5"><a href="#cb14-5"></a></span>
+<span id="cb14-6"><a href="#cb14-6"></a>V <span class="op">=</span> fenics.VectorFunctionSpace(mesh, <span class="st">&#39;CG&#39;</span>, degree<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb14-7"><a href="#cb14-7"></a>du <span class="op">=</span> fenics.TrialFunction(V)</span>
+<span id="cb14-8"><a href="#cb14-8"></a>u_ <span class="op">=</span> fenics.TestFunction(V)</span>
+<span id="cb14-9"><a href="#cb14-9"></a>a <span class="op">=</span> inner(sigma(du), eps(u_))<span class="op">*</span>dx</span>
+<span id="cb14-10"><a href="#cb14-10"></a>l <span class="op">=</span> inner(f, u_)<span class="op">*</span>dx</span></code></pre></div>
+<h3 id="solving">Solving</h3>
+<p>Fixed displacements are imposed on the left part of the beam, the solve function is then called and solution is plotted by deforming the mesh:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1"></a><span class="kw">def</span> left(x, on_boundary):</span>
+<span id="cb15-2"><a href="#cb15-2"></a>    <span class="cf">return</span> fenics.near(x[<span class="dv">0</span>], <span class="fl">0.</span>)</span>
+<span id="cb15-3"><a href="#cb15-3"></a></span>
+<span id="cb15-4"><a href="#cb15-4"></a>bc <span class="op">=</span> fenics.DirichletBC(V, Constant((<span class="fl">0.</span>,<span class="fl">0.</span>)), left)</span>
+<span id="cb15-5"><a href="#cb15-5"></a></span>
+<span id="cb15-6"><a href="#cb15-6"></a>u <span class="op">=</span> fenics.Function(V, name<span class="op">=</span><span class="st">&quot;Displacement&quot;</span>)</span>
+<span id="cb15-7"><a href="#cb15-7"></a>fenics.solve(a <span class="op">==</span> l, u, bc)</span>
+<span id="cb15-8"><a href="#cb15-8"></a></span>
+<span id="cb15-9"><a href="#cb15-9"></a><span class="co"># the solution is amplified with 1e3 for the visuals</span></span>
+<span id="cb15-10"><a href="#cb15-10"></a>fenics.plot(<span class="fl">1e3</span><span class="op">*</span>u, mode<span class="op">=</span><span class="st">&quot;displacement&quot;</span>)</span></code></pre></div>
+<p><img src="scripts/beam_displacement.png" alt="beam_displacement.png" width="600"/></p>
+<p>The maximal deflection is compared against the analytical solution from <a href="https://en.wikipedia.org/wiki/Euler%E2%80%93Bernoulli_beam_theory">Euler-Bernoulli beam theory</a> which is <span class="math inline">\(w_{beam} = \dfrac{qL^4}{8EI}\)</span>, <span class="math inline">\(I\)</span> is the <a href="https://en.wikipedia.org/wiki/Second_moment_of_area">second moment of area</a> of the beam’s cross-section.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1"></a><span class="bu">print</span>(<span class="st">&quot;Maximal deflection:&quot;</span>, <span class="op">-</span>u(L, H<span class="op">/</span><span class="fl">2.</span>)[<span class="dv">1</span>])</span>
+<span id="cb16-2"><a href="#cb16-2"></a><span class="bu">print</span>(<span class="st">&quot;Beam theory deflection:&quot;</span>, <span class="bu">float</span>(rho_g<span class="op">*</span>L<span class="op">**</span><span class="dv">4</span><span class="op">/</span>(<span class="dv">2</span><span class="op">/</span><span class="dv">3</span><span class="op">*</span>E<span class="op">*</span>H<span class="op">**</span><span class="dv">3</span>)))</span></code></pre></div>
+<pre><code>Maximal deflection: 0.005317702470567223
+Beam theory deflection: 0.005859375</code></pre>
+<p><img src="scripts/euler_beam.png" alt="euler_beam.png" width="600"/></p>
+<h2 id="implementing-the-continuum-mechanics-model-in-fenics">Implementing the continuum mechanics model in FEniCS</h2>
+<p>Let’s implement the solver as a function.</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1"></a><span class="im">import</span> fenics, fenics_adjoint</span>
+<span id="cb18-2"><a href="#cb18-2"></a><span class="im">from</span> fenics <span class="im">import</span> tr, Identity, sym, grad, inner, dx</span>
+<span id="cb18-3"><a href="#cb18-3"></a>L <span class="op">=</span> <span class="fl">25.0</span></span>
+<span id="cb18-4"><a href="#cb18-4"></a>H <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb18-5"><a href="#cb18-5"></a>Nx <span class="op">=</span> <span class="dv">25</span></span>
+<span id="cb18-6"><a href="#cb18-6"></a>Ny <span class="op">=</span> <span class="dv">1</span></span>
+<span id="cb18-7"><a href="#cb18-7"></a>mesh <span class="op">=</span> fenics_adjoint.RectangleMesh(fenics.Point(<span class="fl">0.</span>, <span class="fl">0.</span>), fenics.Point(L, H), Nx, Ny, <span class="st">&quot;crossed&quot;</span>)</span>
+<span id="cb18-8"><a href="#cb18-8"></a>V <span class="op">=</span> fenics.VectorFunctionSpace(mesh, <span class="st">&#39;CG&#39;</span>, degree<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb18-9"><a href="#cb18-9"></a></span>
+<span id="cb18-10"><a href="#cb18-10"></a><span class="kw">def</span> left(x, on_boundary):</span>
+<span id="cb18-11"><a href="#cb18-11"></a>    <span class="cf">return</span> fenics.near(x[<span class="dv">0</span>], <span class="fl">0.</span>)</span>
+<span id="cb18-12"><a href="#cb18-12"></a></span>
+<span id="cb18-13"><a href="#cb18-13"></a>bc <span class="op">=</span> fenics_adjoint.DirichletBC(V, fenics_adjoint.Constant((<span class="fl">0.</span>, <span class="fl">0.</span>)), left)</span>
+<span id="cb18-14"><a href="#cb18-14"></a></span>
+<span id="cb18-15"><a href="#cb18-15"></a><span class="kw">def</span> solve_elasticity(E, ρ_g):</span>
+<span id="cb18-16"><a href="#cb18-16"></a>    f <span class="op">=</span> fenics.as_vector([fenics_adjoint.Constant(<span class="dv">0</span>), <span class="op">-</span>ρ_g])</span>
+<span id="cb18-17"><a href="#cb18-17"></a>    nu <span class="op">=</span> fenics_adjoint.Constant(<span class="fl">0.3</span>)</span>
+<span id="cb18-18"><a href="#cb18-18"></a>    mu <span class="op">=</span> <span class="fl">0.5</span> <span class="op">*</span> E <span class="op">/</span> (<span class="dv">1</span> <span class="op">+</span> nu)</span>
+<span id="cb18-19"><a href="#cb18-19"></a>    lmbda <span class="op">=</span> E <span class="op">*</span> nu <span class="op">/</span> (<span class="dv">1</span> <span class="op">+</span> nu) <span class="op">/</span> (<span class="dv">1</span> <span class="op">-</span> <span class="dv">2</span> <span class="op">*</span> nu)</span>
+<span id="cb18-20"><a href="#cb18-20"></a>    <span class="kw">def</span> sigma(v):</span>
+<span id="cb18-21"><a href="#cb18-21"></a>        <span class="cf">return</span> lmbda <span class="op">*</span> tr(eps(v)) <span class="op">*</span> Identity(<span class="dv">2</span>) <span class="op">+</span> <span class="fl">2.0</span> <span class="op">*</span> mu <span class="op">*</span> eps(v)</span>
+<span id="cb18-22"><a href="#cb18-22"></a>    <span class="kw">def</span> eps(v):</span>
+<span id="cb18-23"><a href="#cb18-23"></a>        <span class="cf">return</span> sym(grad(v))</span>
+<span id="cb18-24"><a href="#cb18-24"></a>    u <span class="op">=</span> fenics.TrialFunction(V)</span>
+<span id="cb18-25"><a href="#cb18-25"></a>    v <span class="op">=</span> fenics.TestFunction(V)</span>
+<span id="cb18-26"><a href="#cb18-26"></a>    a <span class="op">=</span> inner(sigma(u), eps(v))<span class="op">*</span>dx</span>
+<span id="cb18-27"><a href="#cb18-27"></a>    l <span class="op">=</span> inner(f, v)<span class="op">*</span>dx</span>
+<span id="cb18-28"><a href="#cb18-28"></a>    w <span class="op">=</span> fenics_adjoint.Function(V)</span>
+<span id="cb18-29"><a href="#cb18-29"></a>    fenics_adjoint.solve(a <span class="op">==</span> l, w, bc)</span>
+<span id="cb18-30"><a href="#cb18-30"></a>    <span class="cf">return</span> w</span></code></pre></div>
+<h2 id="automatic-differentiation-fenics-using-dolfin-adjoint">Automatic differentiation &amp; FEniCS, using <a href="http://www.dolfin-adjoint.org/en/latest/">dolfin-adjoint</a></h2>
+<p>In the previous section we’ve used <code>fenics_adjoint</code>. The aliases for this library is <code>dolfin_adjoint</code>, <code>pyadjoint</code>. The dolfin-adjoint project helps with automatic generation of the discrete adjoint and tangent linear models from a primal model written in the Python interface to FEniCS and Firedrake. Though it’s not strictly necessary to use it, as UFL already has all the ingredients built-in. For the example on how to enable automatic differentiation without <code>fenics_adjoint</code> for starters I suggest looking at the source code for <a href="https://github.com/IvanYashchuk/jax-fenics">JAX-FEniCS project</a>. (WARNING: familiarity both with UFL and JAX is strongly recommended).</p>
+<p>Traditionally FEniCS tutorials started with <code>from fenics import *</code>, if then followed by <code>from fenics_adjoint import *</code> the user smoothly gets the adjoint annotated functions to be able to compute gradients. However, wildcard import should be avoided, therefore there is a burden on the new user to know exactly which functionality should be taken from <code>fenics_adjoint</code> package and what can be used from the main <code>fenics</code> package.</p>
+<p>Let’s say we want to evaluate the integral of the solution &gt;<span class="math display">\[J(w) := \int_\Omega w \cdot w \, d\Omega\]</span> In order to calculate the derivative of <span class="math inline">\(J\)</span> with respect to the loading we use <code>pyadjoint.compute_gradient</code></p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1"></a><span class="im">import</span> pyadjoint</span>
+<span id="cb19-2"><a href="#cb19-2"></a>E <span class="op">=</span> fenics_adjoint.Constant(<span class="fl">1e5</span>)</span>
+<span id="cb19-3"><a href="#cb19-3"></a>ρ_g <span class="op">=</span> fenics_adjoint.Constant(<span class="fl">1e-3</span>)</span>
+<span id="cb19-4"><a href="#cb19-4"></a></span>
+<span id="cb19-5"><a href="#cb19-5"></a>w <span class="op">=</span> solve_elasticity(E, ρ_g)</span>
+<span id="cb19-6"><a href="#cb19-6"></a></span>
+<span id="cb19-7"><a href="#cb19-7"></a>J <span class="op">=</span> fenics_adjoint.assemble(inner(w, w)<span class="op">*</span>dx)</span>
+<span id="cb19-8"><a href="#cb19-8"></a>dJdρg <span class="op">=</span> pyadjoint.compute_gradient(J, pyadjoint.Control(ρ_g))</span>
+<span id="cb19-9"><a href="#cb19-9"></a><span class="bu">print</span>(<span class="ss">f&quot;dJ/dρg = </span><span class="sc">{</span><span class="bu">float</span>(dJdρg)<span class="sc">}</span><span class="ss">&quot;</span>)</span></code></pre></div>
+<pre><code>dJ/dρg = 0.363338652567067</code></pre>
+<h2 id="implementing-a-theano-op-that-calls-to-fenics">Implementing a Theano Op that calls to FEniCS</h2>
+<p>Now when we have our <code>solve_elasticity</code> implemented it’s time to make it usable from PyMC3/Theano! Finally a PyMC3 related thing.</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1"></a><span class="im">from</span> fenics_pymc3 <span class="im">import</span> create_fenics_theano_op</span>
+<span id="cb21-2"><a href="#cb21-2"></a><span class="co"># Define FEniCS template representation of Theano/NumPy input</span></span>
+<span id="cb21-3"><a href="#cb21-3"></a><span class="co"># that is we promise that our arguments are of the following types</span></span>
+<span id="cb21-4"><a href="#cb21-4"></a><span class="co"># the choice is between Constant and Function</span></span>
+<span id="cb21-5"><a href="#cb21-5"></a>templates <span class="op">=</span> (fenics_adjoint.Constant(<span class="fl">0.0</span>), fenics_adjoint.Constant(<span class="fl">0.0</span>))</span>
+<span id="cb21-6"><a href="#cb21-6"></a>theano_fem_solver <span class="op">=</span> create_fenics_theano_op(templates)(solve_elasticity)</span></code></pre></div>
+<p>That’s it! Now <code>theano_fem_solver</code> can be used within <code>pm.Model()</code>!</p>
+<p><code>create_fenics_theano_op</code> can also be used as a decorator, but then we lose the original FEniCS function</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1"></a><span class="at">@create_fenics_theano_op</span>(templates)</span>
+<span id="cb22-2"><a href="#cb22-2"></a><span class="kw">def</span> solve_elasticity(E, ρ_g):</span>
+<span id="cb22-3"><a href="#cb22-3"></a>    ...</span>
+<span id="cb22-4"><a href="#cb22-4"></a>    <span class="cf">return</span> solution</span></code></pre></div>
+<h2 id="finally-building-a-pymc3-model-for-inferring-parameters-of-the-continuum-mechanics-model">Finally, building a PyMC3 model for inferring parameters of the continuum mechanics model</h2>
+<p>We have a solid foundation now for solving PDE-constrained Bayesian inference tasks. In general it’s a good strategy to keep the PDE model development separate from other tasks. Then FEniCS and PyMC3 worlds meet at calling <code>create_fenics_theano_op</code>.</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1"></a><span class="im">import</span> pymc3 <span class="im">as</span> pm</span>
+<span id="cb23-2"><a href="#cb23-2"></a><span class="im">import</span> theano.tensor <span class="im">as</span> tt</span>
+<span id="cb23-3"><a href="#cb23-3"></a></span>
+<span id="cb23-4"><a href="#cb23-4"></a>loads <span class="op">=</span> [[<span class="fl">1.</span>], [<span class="fl">2.5</span>], [<span class="fl">5.</span>]]</span>
+<span id="cb23-5"><a href="#cb23-5"></a>measurements <span class="op">=</span> [<span class="fl">0.11338</span>, <span class="fl">0.28346</span>, <span class="fl">0.56693</span>]</span>
+<span id="cb23-6"><a href="#cb23-6"></a></span>
+<span id="cb23-7"><a href="#cb23-7"></a><span class="cf">with</span> pm.Model() <span class="im">as</span> model:</span>
+<span id="cb23-8"><a href="#cb23-8"></a></span>
+<span id="cb23-9"><a href="#cb23-9"></a>    E <span class="op">=</span> pm.Normal(<span class="st">&quot;E&quot;</span>, mu<span class="op">=</span><span class="fl">1.1e5</span>, sigma<span class="op">=</span><span class="fl">0.3e5</span>, shape<span class="op">=</span>(<span class="dv">1</span>,))</span>
+<span id="cb23-10"><a href="#cb23-10"></a></span>
+<span id="cb23-11"><a href="#cb23-11"></a>    maximum_deflections <span class="op">=</span> []</span>
+<span id="cb23-12"><a href="#cb23-12"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(measurements)):</span>
+<span id="cb23-13"><a href="#cb23-13"></a>        ρ_g <span class="op">=</span> loads[i]</span>
+<span id="cb23-14"><a href="#cb23-14"></a>        predicted_displacement <span class="op">=</span> theano_fem_solver(E, ρ_g)</span>
+<span id="cb23-15"><a href="#cb23-15"></a>        maximum_deflection <span class="op">=</span> tt.<span class="bu">max</span>(predicted_displacement)</span>
+<span id="cb23-16"><a href="#cb23-16"></a>        maximum_deflections.append(maximum_deflection)</span>
+<span id="cb23-17"><a href="#cb23-17"></a>    maximum_deflections <span class="op">=</span> tt.stack(maximum_deflections)</span>
+<span id="cb23-18"><a href="#cb23-18"></a></span>
+<span id="cb23-19"><a href="#cb23-19"></a>    d <span class="op">=</span> pm.Normal(<span class="st">&quot;d&quot;</span>, mu<span class="op">=</span>maximum_deflections, sd<span class="op">=</span><span class="fl">1e-3</span>, observed<span class="op">=</span>measurements)</span></code></pre></div>
+<p>We can now call PyMC3 inference algorithms. First, let’s look at the MAP estimate</p>
+<div class="sourceCode" id="cb24"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1"></a>map_estimate <span class="op">=</span> pm.find_MAP(model<span class="op">=</span>model)</span>
+<span id="cb24-2"><a href="#cb24-2"></a><span class="bu">print</span>(<span class="ss">f&quot;MAP estimate of E is </span><span class="sc">{</span>map_estimate[<span class="st">&#39;E&#39;</span>]<span class="sc">}</span><span class="ss">&quot;</span>)</span></code></pre></div>
+<pre><code>100% [22/22 00:04&lt;00:00 logp = 6.6135, ||grad|| = 1.1144e-05]
+MAP estimate of E is [125000.40465515]</code></pre>
+<p>Of course NUTS also works</p>
+<div class="sourceCode" id="cb26"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1"></a><span class="cf">with</span> model:</span>
+<span id="cb26-2"><a href="#cb26-2"></a>    trace <span class="op">=</span> pm.sample(<span class="dv">100</span>, chains<span class="op">=</span><span class="dv">1</span>, cores<span class="op">=</span><span class="dv">1</span>, tune<span class="op">=</span><span class="dv">100</span>)</span>
+<span id="cb26-3"><a href="#cb26-3"></a></span>
+<span id="cb26-4"><a href="#cb26-4"></a>pm.summary(trace)</span></code></pre></div>
+<pre><code>Only 100 samples in chain.
+Auto-assigning NUTS sampler...
+Initializing NUTS using jitter+adapt_diag...
+Sequential sampling (1 chains in 1 job)
+NUTS: [E]
+Sampling 1 chain for 100 tune and 100 draw iterations (100 + 100 draws total) took 310 seconds.
+Only one chain was sampled, this makes it impossible to run some convergence checks</code></pre>
+<pre><code>            mean       sd      hdi_3%    hdi_97%  mcse_mean  mcse_sd  ess_mean  ess_sd  ess_bulk  ess_tail  r_hat
+E[0]  132148.824  285.805  131637.637  132484.79    245.799  237.897       1.0     1.0       1.0      13.0    NaN</code></pre>
+<p>Now we’ve done all that only to remember that we have the Euler-Bernoulli beam theory, which tells us that given the maximum deflection, the loading, and beam geometry we can calculate the Young’s modulus. However, for many other PDEs we don’t have closed form relationships between measurements and parameters.</p>
+<div class="sourceCode" id="cb29"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1"></a><span class="bu">print</span>(<span class="ss">f&quot;Analytical estimate of E is</span></span>
+<span id="cb29-2"><a href="#cb29-2"></a><span class="ss">        </span><span class="sc">{</span>loads[<span class="dv">0</span>][<span class="dv">0</span>] <span class="op">*</span> <span class="sc">L</span><span class="op">**</span><span class="dv">4</span> <span class="op">/</span> (<span class="dv">2</span><span class="op">/</span><span class="dv">3</span> <span class="op">*</span> H<span class="op">**</span><span class="dv">3</span> <span class="op">*</span> measurements[<span class="dv">0</span>])<span class="sc">}</span><span class="ss">&quot;</span>)</span></code></pre></div>
+<pre><code>Analytical estimate of E is 137738.01128349788</code></pre>
+<h2 id="conclusion">Conclusion</h2>
+<p>PyMC3 and FEniCS are both very popular libraries in their domains. And now we have a tool that bridges them and allows us to experiment with the parameters estimation for PDEs. However, as MCMC requires thousands of calls to the solver, the solver function needs to be optimized to make the call as fast as possible. Here we didn’t focus on the performance at all. There are many ways of making the solver faster. If you think that your solver is “slow”, make benchmarks and ask for improvement advice at <a href="https://fenicsproject.discourse.group/">FEniCS Discourse forum</a>.</p>
+<p>Feedback and questions are welcome either via <a href="https://github.com/IvanYashchuk/fenics-pymc3/issues/new">GitHub issue</a> if you face a bug or <a href="https://discourse.pymc.io/">PyMC3 discourse</a> (ping <span class="citation" data-cites="ivan">@ivan</span>) for general discussion.</p>
+<p><sub><sup>Content provided under a Creative Commons Attribution license, CC-BY 4.0</sup></sub></p>
+</body>
+</html>
