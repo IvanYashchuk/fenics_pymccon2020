@@ -1,0 +1,15 @@
+name: fenics_pymc3_tutorial
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - fenics
+  - ipython
+  - pymc3
+  - jupyterlab
+  - pip
+  - pip:
+    - git+https://github.com/dolfin-adjoint/pyadjoint.git@master
+    - git+https://github.com/IvanYashchuk/numpy-fenics-adjoint@master
+    - git+https://github.com/IvanYashchuk/fenics-pymc3.git@master
+
