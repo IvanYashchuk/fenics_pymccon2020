@@ -8,6 +8,8 @@ Automatic adjoint solvers for FEniCS programs are generated with [dolfin-adjoint
 
 Here is the link to the static (non-interactive) version of the tutorial: https://ivanyashchuk.github.io/fenics_pymccon2020/
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/IvanYashchuk/fenics_pymccon2020/HEAD?urlpath=https%3A%2F%2Fgithub.com%2FIvanYashchuk%2Ffenics_pymccon2020%2Fblob%2Fmain%2Ftutorial.ipynb)
+
 ## Setup
 
 This tutorial assumes that you have [Anaconda](https://www.anaconda.com/distribution/#download-section) (Python 3.7 version) setup and installed on your system.
