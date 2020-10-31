@@ -6,9 +6,7 @@ This tutorial intoduces the use of [FEniCS](http://fenicsproject.org/) for solvi
 
 Automatic adjoint solvers for FEniCS programs are generated with [dolfin-adjoint/pyadjoint](http://www.dolfin-adjoint.org/en/latest/). These solvers make it possible to use Theano's (PyMC3 backend) reverse mode automatic differentiation with FEniCS.
 
-Here is the link to the static (non-interactive) version of the tutorial:
-
-    https://ivanyashchuk.github.io/fenics_pymccon2020/
+Here is the link to the static (non-interactive) version of the tutorial: https://ivanyashchuk.github.io/fenics_pymccon2020/
 
 ## Setup
 
